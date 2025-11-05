@@ -2,7 +2,7 @@ import os
 import json
 import typer
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from rich.console import Console
 from rich.table import Table
@@ -236,6 +236,70 @@ def today():
     )
     
     console.print(table)
+
+@app.command()
+def summary(
+    yesterday: bool = typer.Option(False, "--yesterday", "-y", help="Show yesterday's totals"),
+    date: Optional[str] = typer.Option(None, "--date", "-d", help="Show specific date (YYYY-MM-DD)"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
+):
+    """
+    Show daily summary totals.
+    
+    Example: food summary
+    Example: food summary --yesterday
+    Example: food summary --date 2025-11-04
+    """
+    if not LOG_FILE.exists():
+        console.print("[yellow]No foods logged yet[/yellow]")
+        return
+    
+    # Determine target date
+    if date:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    elif yesterday:
+        target_date = (datetime.now() - timedelta(days=1)).date()
+    else:
+        target_date = datetime.now().date()
+    
+    target_str = target_date.isoformat()
+    entries = []
+    
+    with open(LOG_FILE, "r") as f:
+        for line in f:
+            entry = json.loads(line)
+            if entry["timestamp"].startswith(target_str):
+                entries.append(entry)
+    
+    if not entries:
+        if json_output:
+            print(json.dumps({"date": target_str, "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "entries": 0}))
+        else:
+            console.print(f"[yellow]No foods logged for {target_str}[/yellow]")
+        return
+    
+    # Calculate totals
+    total_cals = sum(e["calories"] for e in entries)
+    total_protein = sum(e["protein_g"] for e in entries)
+    total_carbs = sum(e["carbs_g"] for e in entries)
+    total_fat = sum(e["fat_g"] for e in entries)
+    
+    if json_output:
+        output = {
+            "date": target_str,
+            "calories": round(total_cals, 1),
+            "protein": round(total_protein, 1),
+            "carbs": round(total_carbs, 1),
+            "fat": round(total_fat, 1),
+            "entries": len(entries)
+        }
+        print(json.dumps(output))
+    else:
+        console.print(f"[bold]Summary for {target_str}[/bold]")
+        console.print(f"  Entries: {len(entries)}")
+        console.print(f"  Calories: {total_cals:.0f} kcal")
+        console.print(f"  Protein: {total_protein:.1f}g | Carbs: {total_carbs:.1f}g | Fat: {total_fat:.1f}g")
+
 
 @app.command()
 def quick(
