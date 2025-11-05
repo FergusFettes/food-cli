@@ -19,15 +19,16 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = DATA_DIR / "food_log.jsonl"
 
 def get_api_key() -> str:
-    """Get USDA API key from env or pa file"""
+    """Get USDA API key from env, pa file, or default to DEMO_KEY"""
     api_key = os.getenv("USDA_API_KEY")
     if not api_key:
         key_file = Path.home() / "pa" / "usda"
         if key_file.exists():
             api_key = key_file.read_text().strip()
     if not api_key:
-        console.print("[red]Error: USDA_API_KEY not found. Get one at https://fdc.nal.usda.gov/api-key-signup/[/red]")
-        raise typer.Exit(1)
+        # Default to DEMO_KEY (low rate limits but works for testing)
+        api_key = "DEMO_KEY"
+        console.print("[yellow]Using DEMO_KEY (low rate limits). Get your own key at https://fdc.nal.usda.gov/api-key-signup/[/yellow]")
     return api_key
 
 def search_food(query: str, page_size: int = 10) -> dict:
